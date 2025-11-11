@@ -27,6 +27,13 @@ def on_startup() -> None:
     init_db()
     with get_session() as session:
         seed_example(session)
+from fastapi import FastAPI, HTTPException
+
+from . import schemas
+from .storage import InMemoryStore, seeded_store
+
+app = FastAPI(title="Sheetify API", version="0.1.0")
+store: InMemoryStore = seeded_store()
 
 
 @app.get("/health", response_model=schemas.HealthResponse)
