@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sheetify Tool Builder</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <header class="sidebar__header">
+          <h1>Sheetify</h1>
+          <p class="sidebar__subtitle">Prompt-built mini tools</p>
+        </header>
+        <nav class="sidebar__files" aria-label="Saved tools">
+          <ul id="tool-list" class="file-list"></ul>
+        </nav>
+        <button id="refresh-tools" class="sidebar__refresh" type="button">
+          Refresh tools
+        </button>
+      </aside>
+
+      <main class="workspace" id="app">
+        <section class="panel panel--primary">
+          <h2>Create a mini tool</h2>
+          <form id="prompt-form" class="prompt-form">
+            <label for="prompt-input">Describe what the tool should do</label>
+            <textarea
+              id="prompt-input"
+              name="prompt"
+              rows="5"
+              placeholder="e.g. Combine two CSVs, highlight revenue anomalies, and export insights"
+              required
+            ></textarea>
+            <div class="prompt-form__actions">
+              <button type="submit">Generate tool</button>
+              <span class="helper-text"
+                >The generated blueprint, memory, and storage records are persisted automatically.</span
+              >
+            </div>
+          </form>
+          <p class="status" id="prompt-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel panel--detail" id="tool-detail" hidden>
+          <header class="detail__header">
+            <div>
+              <h2 id="detail-title">Tool detail</h2>
+              <p id="detail-meta" class="detail__meta"></p>
+            </div>
+          </header>
+          <div class="detail__content">
+            <article>
+              <h3>Blueprint</h3>
+              <pre id="detail-blueprint" class="code"></pre>
+            </article>
+            <article>
+              <h3>Memory</h3>
+              <pre id="detail-memory" class="code"></pre>
+            </article>
+            <article>
+              <h3>Storage</h3>
+              <pre id="detail-storage" class="code"></pre>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel panel--empty" id="empty-state">
+          <h2>No tool selected</h2>
+          <p>Create a tool or choose one from the sidebar to inspect its blueprint.</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="assets/app.js" type="module"></script>
+  </body>
+</html>
