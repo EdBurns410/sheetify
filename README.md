@@ -323,3 +323,24 @@ Out of scope for MVP: real time collaboration in the same job, desktop agents, d
 - API smoke tests for upload, mapping, plan, run.
 - Load test on 100 MB CSV.
 - Observability dashboards and alerts.
+
+## 16. Developer Quickstart
+
+The repository now ships with a minimal vertical slice to help prototype the experience described above.
+
+### Backend API (FastAPI)
+
+1. `cd backend`
+2. `python -m venv .venv && source .venv/bin/activate`
+3. `pip install -r requirements.txt`
+4. `uvicorn app.main:app --reload`
+
+The server exposes the REST contract from section 7 with in-memory storage. Responses echo the specification structure so the frontend can be exercised without standing up the full platform.
+
+### Frontend Console (static)
+
+1. In another terminal, `cd frontend`
+2. Serve the directory (for example `python -m http.server 3000`)
+3. Navigate to `http://localhost:3000`
+
+The console walks through upload, mapping, job creation, execution, and template flows by calling the FastAPI backend on `http://localhost:8000`.
