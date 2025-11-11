@@ -3,174 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sheetify Console</title>
+    <title>Sheetify Tool Builder</title>
     <link rel="stylesheet" href="assets/styles.css" />
   </head>
   <body>
-    <header class="hero">
-      <h1>Sheetify</h1>
-      <p class="subtitle">Turn ad hoc spreadsheet work into reusable recipes.</p>
-    </header>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <header class="sidebar__header">
+          <h1>Sheetify</h1>
+          <p class="sidebar__subtitle">Prompt-built mini tools</p>
+        </header>
+        <nav class="sidebar__files" aria-label="Saved tools">
+          <ul id="tool-list" class="file-list"></ul>
+        </nav>
+        <button id="refresh-tools" class="sidebar__refresh" type="button">
+          Refresh tools
+        </button>
+      </aside>
 
-    <main id="app">
-      <section class="panel" id="auth-panel">
-        <h2>1. Authenticate</h2>
-        <form id="auth-form">
-          <label>
-            Email
-            <input type="email" id="auth-email" name="auth-email" required />
-          </label>
-          <label>
-            Password
-            <input type="password" id="auth-password" name="auth-password" required />
-          </label>
-          <button type="submit">Sign in</button>
-        </form>
-        <p class="helper-text">This demo stores credentials locally only.</p>
-      </section>
+      <main class="workspace" id="app">
+        <section class="panel panel--primary">
+          <h2>Create a mini tool</h2>
+          <form id="prompt-form" class="prompt-form">
+            <label for="prompt-input">Describe what the tool should do</label>
+            <textarea
+              id="prompt-input"
+              name="prompt"
+              rows="5"
+              placeholder="e.g. Combine two CSVs, highlight revenue anomalies, and export insights"
+              required
+            ></textarea>
+            <div class="prompt-form__actions">
+              <button type="submit">Generate tool</button>
+              <span class="helper-text"
+                >The generated blueprint, memory, and storage records are persisted automatically.</span
+              >
+            </div>
+          </form>
+          <p class="status" id="prompt-status" role="status" aria-live="polite"></p>
+        </section>
 
-      <section class="panel" id="file-panel">
-        <h2>2. Upload file metadata</h2>
-        <form id="file-form">
-          <label>
-            File name
-            <input type="text" id="file-name" name="file-name" placeholder="report.xlsx" required />
-          </label>
-          <label>
-            File size (bytes)
-            <input type="number" id="file-size" name="file-size" value="2048" min="1" required />
-          </label>
-          <button type="submit">Request upload URL</button>
-        </form>
-        <pre class="output" id="file-output"></pre>
-      </section>
+        <section class="panel panel--detail" id="tool-detail" hidden>
+          <header class="detail__header">
+            <div>
+              <h2 id="detail-title">Tool detail</h2>
+              <p id="detail-meta" class="detail__meta"></p>
+            </div>
+          </header>
+          <div class="detail__content">
+            <article>
+              <h3>Blueprint</h3>
+              <pre id="detail-blueprint" class="code"></pre>
+            </article>
+            <article>
+              <h3>Memory</h3>
+              <pre id="detail-memory" class="code"></pre>
+            </article>
+            <article>
+              <h3>Storage</h3>
+              <pre id="detail-storage" class="code"></pre>
+            </article>
+          </div>
+        </section>
 
-      <section class="panel" id="finalise-panel">
-        <h2>3. Finalise upload</h2>
-        <form id="finalise-form">
-          <label>
-            File ID
-            <input type="text" id="finalise-file-id" name="finalise-file-id" required />
-          </label>
-          <button type="submit">Finalise</button>
-        </form>
-        <pre class="output" id="finalise-output"></pre>
-      </section>
-
-      <section class="panel" id="mapping-panel">
-        <h2>4. Save column mapping</h2>
-        <form id="mapping-form">
-          <label>
-            File ID
-            <input type="text" id="mapping-file-id" name="mapping-file-id" required />
-          </label>
-          <label>
-            Mapping JSON
-            <textarea id="mapping-json" name="mapping-json" rows="6" required>{
-  "columns": [
-    {"path": "/workbook/Sheet1/id", "alias": "id"},
-    {"path": "/workbook/Sheet1/value", "alias": "value"}
-  ]
-}</textarea>
-          </label>
-          <button type="submit">Create mapping</button>
-        </form>
-        <pre class="output" id="mapping-output"></pre>
-      </section>
-
-      <section class="panel" id="job-panel">
-        <h2>5. Create job</h2>
-        <form id="job-form">
-          <label>
-            Mapping ID
-            <input type="text" id="job-mapping-id" name="job-mapping-id" required />
-          </label>
-          <label>
-            Title
-            <input type="text" id="job-title" name="job-title" value="Monthly summary" required />
-          </label>
-          <label>
-            Prompt
-            <textarea id="job-prompt" name="job-prompt" rows="3" required>Summarise revenue by region and highlight anomalies.</textarea>
-          </label>
-          <button type="submit">Preview plan</button>
-        </form>
-        <pre class="output" id="job-output"></pre>
-      </section>
-
-      <section class="panel" id="run-panel">
-        <h2>6. Execute run</h2>
-        <form id="run-form">
-          <label>
-            Job ID
-            <input type="text" id="run-job-id" name="run-job-id" required />
-          </label>
-          <button type="submit">Start run</button>
-        </form>
-        <pre class="output" id="run-output"></pre>
-      </section>
-
-      <section class="panel" id="status-panel">
-        <h2>7. Inspect run status</h2>
-        <form id="status-form">
-          <label>
-            Run ID
-            <input type="text" id="status-run-id" name="status-run-id" required />
-          </label>
-          <button type="submit">Refresh status</button>
-        </form>
-        <pre class="output" id="status-output"></pre>
-      </section>
-
-      <section class="panel" id="artefact-panel">
-        <h2>8. Download artefacts</h2>
-        <form id="artefact-form">
-          <label>
-            Run ID
-            <input type="text" id="artefact-run-id" name="artefact-run-id" required />
-          </label>
-          <button type="submit">List artefacts</button>
-        </form>
-        <pre class="output" id="artefact-output"></pre>
-      </section>
-
-      <section class="panel" id="template-panel">
-        <h2>9. Templates</h2>
-        <form id="template-form">
-          <label>
-            Name
-            <input type="text" id="template-name" name="template-name" value="Standard monthly run" required />
-          </label>
-          <label>
-            Job ID (optional)
-            <input type="text" id="template-job-id" name="template-job-id" />
-          </label>
-          <label>
-            Mapping ID (optional)
-            <input type="text" id="template-mapping-id" name="template-mapping-id" />
-          </label>
-          <button type="submit">Save template</button>
-        </form>
-        <pre class="output" id="template-output"></pre>
-
-        <form id="template-run-form">
-          <label>
-            Template ID
-            <input type="text" id="template-run-id" name="template-run-id" required />
-          </label>
-          <label>
-            File IDs (comma separated)
-            <input type="text" id="template-run-files" name="template-run-files" placeholder="file-1,file-2" required />
-          </label>
-          <button type="submit">Run template</button>
-        </form>
-        <pre class="output" id="template-run-output"></pre>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <p>Sandbox console &mdash; connects to the local FastAPI backend.</p>
-    </footer>
+        <section class="panel panel--empty" id="empty-state">
+          <h2>No tool selected</h2>
+          <p>Create a tool or choose one from the sidebar to inspect its blueprint.</p>
+        </section>
+      </main>
+    </div>
 
     <script src="assets/app.js" type="module"></script>
   </body>

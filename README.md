@@ -1,5 +1,64 @@
 # Sheetify SaaS Product Specification
 
+## Getting Started Quickly
+
+If you just want to run the demo slice that lives in this repository, follow these
+steps. The backend is a small [FastAPI](https://fastapi.tiangolo.com/) app that
+stores generated tools in SQLite, and the frontend is a static HTML/JS
+experience that lets you create prompt-driven mini tools.
+
+### Prerequisites
+
+- Python 3.11 or newer (for `venv`, FastAPI, and Uvicorn)
+- A shell with `python` and `pip` on the `PATH`
+
+### Start the backend API
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+This launches the API on [http://localhost:8000](http://localhost:8000). Leave it
+running in that terminal. You can confirm it is working by visiting
+`http://localhost:8000/docs`, which exposes the interactive Swagger UI, or by
+running:
+
+```bash
+curl http://localhost:8000/health
+```
+
+### Open the frontend console
+
+In a second terminal window:
+
+```bash
+cd frontend
+python -m http.server 3000
+```
+
+Now open [http://localhost:3000](http://localhost:3000) in your browser. The
+console is hard-coded to call the backend at `http://localhost:8000`, so both
+processes need to be running at the same time.
+
+### Drive the end-to-end flow
+
+1. Enter a natural language prompt describing the tool you want to build, then
+   press **Generate tool**. The backend creates a blueprint, memory log, and
+   storage manifest and persists them to SQLite.
+2. New tools appear instantly in the left-hand sidebar. Selecting an item loads
+   its blueprint, memory, and storage metadata into the detail view.
+3. Use **Refresh tools** if you want to re-sync the sidebar after clearing the
+   database or making changes from another client.
+
+> **Tip:** If you change the backend host or port, update `API_BASE` at the top
+> of `frontend/assets/app.js` so the console points to the right address.
+
+---
+
 ## 1. Vision and Scope
 
 Build a scalable SaaS where users upload CSV or XLSX, select worksheets, map headers, then describe a task in plain English.

@@ -1,5 +1,32 @@
 from __future__ import annotations
 
+import re
+from datetime import datetime
+from typing import List
+
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session, select
+
+from . import schemas
+from .storage import get_session, init_db, seed_example, session_dependency
+
+app = FastAPI(title="Sheetify Tool Builder", version="0.2.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+    with get_session() as session:
+        seed_example(session)
 from fastapi import FastAPI, HTTPException
 
 from . import schemas
@@ -14,93 +41,104 @@ def health() -> schemas.HealthResponse:
     return schemas.HealthResponse()
 
 
-@app.post("/v1/files", response_model=schemas.SignedUrlResponse)
-def request_upload(filename: str, bytes: int) -> schemas.SignedUrlResponse:
-    record = store.create_file(filename, bytes)
-    return schemas.SignedUrlResponse(
-        file_id=record["file_id"],
-        signed_url=f"https://uploads.example.com/{record['file_id']}",
-    )
+def _slugify(text: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9\s]", "", text).strip().lower()
+    if not cleaned:
+        return "tool"
+    return re.sub(r"\s+", "-", cleaned)
 
 
-@app.post("/v1/files:finalise", response_model=schemas.FinaliseFileResponse)
-def finalise_file(payload: schemas.FinaliseFileRequest) -> schemas.FinaliseFileResponse:
-    file_record = store.finalise_file(payload.file_id)
-    summary = schemas.WorkbookSummary(
-        file_id=file_record["file_id"],
-        workbook_name=file_record["filename"],
-        sheets=[
-            schemas.SheetHeader(name=s["name"], headers=s["headers"]) for s in file_record["sheets"]
+def _title_from_prompt(prompt: str) -> str:
+    words = [word for word in re.split(r"\s+", prompt.strip()) if word]
+    if not words:
+        return "Untitled Tool"
+    sample = " ".join(words[:5])
+    return sample.title()
+
+
+def _build_tool_from_prompt(prompt: str) -> schemas.Tool:
+    prompt_clean = prompt.strip()
+    created = datetime.utcnow()
+    title = _title_from_prompt(prompt_clean)
+    slug = _slugify(title)
+    mini_app = {
+        "title": title,
+        "prompt_summary": prompt_clean,
+        "layout": {
+            "sidebar": [
+                {"component": "filePicker", "label": "Source data"},
+                {"component": "notes", "label": "Insights"},
+            ],
+            "workspace": [
+                {"component": "table", "label": "Preview table", "source": "primary"},
+                {"component": "chart", "label": "Quick chart", "source": "primary"},
+            ],
+        },
+        "actions": [
+            {
+                "id": "summarise",
+                "label": "Summarise data",
+                "description": "Runs an automated summary tailored to the prompt.",
+            },
+            {
+                "id": "export",
+                "label": "Export results",
+                "description": "Packages the insights as a CSV download.",
+            },
         ],
-    )
-    return schemas.FinaliseFileResponse(file=summary)
-
-
-@app.post("/v1/mappings", response_model=schemas.MappingResponse)
-def create_mapping(payload: schemas.MappingRequest) -> schemas.MappingResponse:
-    if payload.file_id not in store.files:
-        raise HTTPException(status_code=404, detail="file not found")
-    created = store.create_mapping(payload.file_id, payload.mapping_json)
-    return schemas.MappingResponse(**created)
-
-
-@app.post("/v1/jobs", response_model=schemas.JobPreview)
-def create_job(payload: schemas.JobCreateRequest) -> schemas.JobPreview:
-    if payload.mapping_id not in store.mappings:
-        raise HTTPException(status_code=404, detail="mapping not found")
-    created = store.create_job(payload.title, payload.prompt_raw, payload.mapping_id)
-    return schemas.JobPreview(**created)
-
-
-@app.post("/v1/jobs/{job_id}/run", response_model=schemas.RunResponse)
-def start_job_run(job_id: str) -> schemas.RunResponse:
-    if job_id not in store.jobs:
-        raise HTTPException(status_code=404, detail="job not found")
-    run = store.create_run(job_id)
-    store.start_run(run["run_id"])
-    store.complete_run(run["run_id"])
-    return schemas.RunResponse(run_id=run["run_id"])
-
-
-@app.get("/v1/runs/{run_id}", response_model=schemas.RunStatus)
-def get_run(run_id: str) -> schemas.RunStatus:
-    if run_id not in store.runs:
-        raise HTTPException(status_code=404, detail="run not found")
-    run = store.get_run(run_id)
-    return schemas.RunStatus(
-        run_id=run["run_id"],
-        status=run["status"],
-        started_at=run["started_at"],
-        finished_at=run["finished_at"],
-        logs_pointer=f"https://logs.example.com/{run_id}",
-        tests=run["tests"],
-        summary=run["summary"],
+    }
+    memory = {
+        "events": [
+            {
+                "type": "creation",
+                "timestamp": created.isoformat() + "Z",
+                "message": f"Tool initialised from prompt: {prompt_clean}",
+            }
+        ]
+    }
+    storage = {
+        "workspace_path": f"tools/{slug}.json",
+        "files": [
+            {
+                "name": f"{slug}.json",
+                "description": "Blueprint for the generated mini tool",
+            }
+        ],
+    }
+    return schemas.Tool(
+        name=title,
+        prompt=prompt_clean,
+        mini_app=mini_app,
+        memory=memory,
+        storage=storage,
+        created_at=created,
     )
 
 
-@app.get("/v1/runs/{run_id}/artefacts", response_model=schemas.ArtefactList)
-def get_run_artefacts(run_id: str) -> schemas.ArtefactList:
-    if run_id not in store.runs:
-        raise HTTPException(status_code=404, detail="run not found")
-    artefacts = store.get_run_artefacts(run_id)
-    return schemas.ArtefactList(artefacts=[schemas.Artefact(**a) for a in artefacts])
+@app.post("/tools", response_model=schemas.ToolRead, status_code=201)
+def create_tool(
+    payload: schemas.ToolCreate, session: Session = Depends(session_dependency)
+) -> schemas.ToolRead:
+    prompt = payload.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=422, detail="Prompt cannot be empty.")
+
+    tool = _build_tool_from_prompt(prompt)
+    session.add(tool)
+    session.commit()
+    session.refresh(tool)
+    return tool
 
 
-@app.post("/v1/templates", response_model=schemas.TemplateCreateResponse)
-def create_template(payload: schemas.TemplateCreateRequest) -> schemas.TemplateCreateResponse:
-    if payload.job_id and payload.job_id not in store.jobs:
-        raise HTTPException(status_code=404, detail="job not found")
-    if payload.mapping_id and payload.mapping_id not in store.mappings:
-        raise HTTPException(status_code=404, detail="mapping not found")
-    template = store.create_template(payload.name, payload.job_id, payload.mapping_id, payload.spec_json)
-    return schemas.TemplateCreateResponse(template_id=template["template_id"])
+@app.get("/tools", response_model=List[schemas.ToolRead])
+def list_tools(session: Session = Depends(session_dependency)) -> List[schemas.ToolRead]:
+    tools = session.exec(select(schemas.Tool).order_by(schemas.Tool.created_at.desc())).all()
+    return tools
 
 
-@app.post("/v1/templates/{template_id}/run", response_model=schemas.RunResponse)
-def run_template(template_id: str, payload: schemas.TemplateRunRequest) -> schemas.RunResponse:
-    if template_id not in store.templates:
-        raise HTTPException(status_code=404, detail="template not found")
-    run = store.create_template_run(template_id, payload.file_ids)
-    store.start_run(run["run_id"])
-    store.complete_run(run["run_id"])
-    return schemas.RunResponse(run_id=run["run_id"])
+@app.get("/tools/{tool_id}", response_model=schemas.ToolRead)
+def get_tool(tool_id: int, session: Session = Depends(session_dependency)) -> schemas.ToolRead:
+    tool = session.get(schemas.Tool, tool_id)
+    if not tool:
+        raise HTTPException(status_code=404, detail="Tool not found.")
+    return tool

@@ -1,102 +1,35 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from sqlalchemy import Column, JSON
+from sqlmodel import Field, SQLModel
 
 
-class SheetHeader(BaseModel):
+class ToolBase(SQLModel):
     name: str
-    headers: List[str] = Field(default_factory=list)
+    prompt: str
+    mini_app: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    memory: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    storage: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class WorkbookSummary(BaseModel):
-    file_id: str
-    workbook_name: str
-    sheets: List[SheetHeader]
+class Tool(ToolBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
 
 
-class SignedUrlResponse(BaseModel):
-    file_id: str
-    signed_url: str
-    expires_in_seconds: int = 900
+class ToolCreate(SQLModel):
+    prompt: str
 
 
-class FinaliseFileRequest(BaseModel):
-    file_id: str
+class ToolRead(ToolBase):
+    id: int
+
+    class Config:
+        orm_mode = True
 
 
-class FinaliseFileResponse(BaseModel):
-    file: WorkbookSummary
-
-
-class MappingRequest(BaseModel):
-    file_id: str
-    mapping_json: dict
-
-
-class MappingResponse(BaseModel):
-    mapping_id: str
-    registry_json: dict
-
-
-class JobCreateRequest(BaseModel):
-    title: str
-    prompt_raw: str
-    mapping_id: str
-
-
-class JobPreview(BaseModel):
-    job_id: str
-    spec_preview: dict
-    test_preview: List[dict]
-
-
-class RunRequest(BaseModel):
-    pass
-
-
-class RunResponse(BaseModel):
-    run_id: str
-
-
-class RunStatus(BaseModel):
-    run_id: str
-    status: str
-    started_at: datetime
-    finished_at: Optional[datetime]
-    logs_pointer: Optional[str] = None
-    tests: List[dict] = Field(default_factory=list)
-    summary: dict = Field(default_factory=dict)
-
-
-class Artefact(BaseModel):
-    kind: str
-    display_name: str
-    storage_key: str
-    bytes: int
-
-
-class ArtefactList(BaseModel):
-    artefacts: List[Artefact]
-
-
-class TemplateCreateRequest(BaseModel):
-    job_id: Optional[str] = None
-    mapping_id: Optional[str] = None
-    name: str
-    spec_json: Optional[dict] = None
-
-
-class TemplateCreateResponse(BaseModel):
-    template_id: str
-
-
-class TemplateRunRequest(BaseModel):
-    file_ids: List[str]
-
-
-class HealthResponse(BaseModel):
+class HealthResponse(SQLModel):
     status: str = "ok"
-    version: str = "0.1.0"
